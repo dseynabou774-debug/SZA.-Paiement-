@@ -4,9 +4,10 @@
 const Audiobooks = {};
 
 Audiobooks.listAll = async function () {
-  if (!(await Ebooks.ensureLogin())) return [];
+  if (!(await Ebooks.ensureLogin())) { alert('Login échoué'); return []; }
   const { data, error } = await sb.from('audio_products').select('*').order('title');
-  if (error) { Utils.toast('Erreur chargement audios : ' + error.message, 'err'); return []; }
+  if (error) { alert('ERREUR AUDIO: ' + JSON.stringify(error)); return []; }
+  alert('Données reçues: ' + JSON.stringify(data));
   return data || [];
 };
 
