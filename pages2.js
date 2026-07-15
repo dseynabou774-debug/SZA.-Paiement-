@@ -311,8 +311,46 @@ Pages.receipt = function (id) {
       <button class="btn btn-outline btn-sm" onclick="window.print()">🖨️ Imprimer</button>
       <button class="btn btn-outline btn-sm" onclick="Pages.copyReceipt('${s.id}')">📋 Copier</button>
       <button class="btn btn-gold btn-sm" onclick="Pages.shareReceiptWhatsApp('${s.id}')">📲 WhatsApp</button>
+      <button class="btn btn-outline btn-sm" onclick="Pages.audioModal('${s.id}')">🎧 Audio</button>
     </div>
   `;
+};
+
+Pages.audioModal = async function (saleId) {
+  Utils.openModal(`
+    <div class="modal-header"><h3>🎧 Livres audio</h3><button class="modal-close" onclick="Utils.closeModal()">✕</button></div>
+    <div id="audio-modal-list" class="text-muted" style="font-size:.85rem">Chargement...</div>
+  `);
+  const audios = await Audiobooks.listAll();
+  const holder = document.getElementById('audio-modal-list');
+  if (!holder) return;
+  if (!audios.length) {
+    holder.innerHTML = `<div class="text-muted" style="font-size:.85rem">Aucun livre audio disponible.</div>`;
+    return;
+  }
+  holder.innerHTML = audios.map(a => `
+    <div class="stock-row">
+      <span>${Utils.escapeHtml(a.title)}${a.price ? ' — ' + Utils.money(a.price) : ''}</span>
+      <button class="btn btn-sm btn-primary" onclick="Pages.audioGenerateAndShare('${saleId}','${a.id}')">Envoyer</button>
+    </div>
+  `).join('');
+};
+
+Pages.audioGenerateAndShare = async function (saleId, audioId) {
+  const s = DB.getSale(saleId);
+  const client = s ? DB.getClient(s.clientId) : null;
+  Utils.toast('Génération du lien audio...', 'ok');
+  const token = await Audiobooks.generateLink(audioId, client ? client.name : '', client ? client.phone : '');
+  if (!token) return;
+  const link = `https://dseynabou774-debug.github.io/SZA-Livres/ecouter.html?token=${token}`;
+  Utils.closeModal();
+  const text = `🎧 Voici votre lien d'écoute audio :\n${link}`;
+  if (navigator.share) {
+    try { await navigator.share({ text }); } catch(e) {}
+  } else {
+    navigator.clipboard.writeText(text).then(() => Utils.toast('Lien copié ✅')).catch(() => {});
+    window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank');
+  }
 };
 
 Pages.renderReceiptQR = function (id) {
