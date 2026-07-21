@@ -13,6 +13,27 @@ Pages.dashboard = function () {
   const bestEbook = DB.bestSellers(5, 'ebook');
   const lowStock = DB.data.books.filter(b => DB.bookStatus(b) !== 'disponible');
 
+  // Les audios ne font pas partie de DB.data.books (catalogue géré côté
+  // Supabase), donc on calcule leurs statistiques directement à partir
+  // des ventes enregistrées, sans toucher à DB.totals().
+  let audioSold = 0;
+  let audioRevenue = 0;
+  const audioSoldByTitle = {};
+  (DB.data.sales || []).forEach(s => {
+    (s.items || []).forEach(it => {
+      if (it.isAudio) {
+        const qty = it.qty || 1;
+        audioSold += qty;
+        audioRevenue += qty * (it.price || 0);
+        const key = it.title || 'Audio';
+        if (!audioSoldByTitle[key]) audioSoldByTitle[key] = { title: key, sold: 0, price: it.price || 0 };
+        audioSoldByTitle[key].sold += qty;
+      }
+    });
+  });
+  const audioProfit = audioRevenue; // pas de coût de production associé, comme pour les e-books
+  const bestAudio = Object.values(audioSoldByTitle).sort((a, b) => b.sold - a.sold).slice(0, 5);
+
   let alertHtml = '';
   if (lowStock.length) {
     alertHtml = `<div class="alert-banner">⚠️ ${lowStock.length} livre(s) proche(s) de la rupture ou en rupture de stock.</div>`;
@@ -65,6 +86,12 @@ Pages.dashboard = function () {
           <div class="stock-row"><span class="text-muted">Chiffre d'affaires</span><strong>${Utils.money(t.ebookRevenue)}</strong></div>
           <div class="stock-row"><span class="text-muted">Bénéfice</span><strong class="gold-text">${Utils.money(t.ebookProfit)}</strong></div>
         </div>
+        <div class="card" style="border-left:4px solid var(--gold); grid-column:1 / -1">
+          <h3 style="font-size:.95rem">🎧 Audios</h3>
+          <div class="stock-row mt-8"><span class="text-muted">Vendus</span><strong>${audioSold}</strong></div>
+          <div class="stock-row"><span class="text-muted">Chiffre d'affaires</span><strong>${Utils.money(audioRevenue)}</strong></div>
+          <div class="stock-row"><span class="text-muted">Bénéfice</span><strong class="gold-text">${Utils.money(audioProfit)}</strong></div>
+        </div>
       </div>
     </div>
 
@@ -75,6 +102,10 @@ Pages.dashboard = function () {
     <div class="section-block">
       <h3>📱 E-books les plus vendus</h3>
       <div class="list">${bestListHtml(bestEbook, 'Aucune vente d\'e-book pour le moment.')}</div>
+    </div>
+    <div class="section-block">
+      <h3>🎧 Audios les plus vendus</h3>
+      <div class="list">${bestListHtml(bestAudio, 'Aucune vente d\'audio pour le moment.')}</div>
     </div>
 
     <div class="section-block">
